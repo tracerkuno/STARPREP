@@ -75,7 +75,7 @@ const SCENARIOS = [
 const STEP_SECONDS = 12;
 const LEVELS = [ { min: 0, name: "Rookie" }, { min: 150, name: "Communicator" }, { min: 400, name: "Pro Speaker" }, { min: 800, name: "StarPrep Master" } ];
 
-const isPlaceholder = firebaseConfig.apiKey === "AIzaSyDvFZjYnKvGIverhcqGE3GNQFVw4ZTeT34";
+const isPlaceholder = !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("REPLACE_ME");
 if (isPlaceholder) document.getElementById("configWarning").style.display = "block";
 
 let db, auth;
