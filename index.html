@@ -1,172 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  >
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StarPrep — STAR &amp; PREP Arcade</title>
 
-  <title>STARPREP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <div id="configWarning" class="warn ui" style="display:none;">
-    Running with placeholder Firebase keys — sign-in won't work until you paste your own
-    <code>firebaseConfig</code> values in the CONFIG section at the top of the script.
-  </div>
+<div id="flashLayer" class="flash"></div>
+<div id="configWarning" class="warn" style="display:none;">
+  Running with placeholder Firebase keys — sign-in won't work until you paste your own <code>firebaseConfig</code> in the CONFIG section.
+</div>
 
+<div id="loginScreen" class="login-wrap" style="display:none;">
+  <h1 class="px">STARPREP</h1>
+  <p>Beat the clock. Build your combo. Pick the sentence that actually belongs in each step of STAR or PREP.</p>
+  <button class="gbtn" id="googleBtn">
+    <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3c-7.3 0-13.6 4.1-16.7 10.1z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.4-5.4C29.6 35.6 27 36.5 24 36.5c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3-3.3 5.3-6 6.8l6.4 5.4C39.9 37.6 45 31.5 45 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
+    Continue with Google
+  </button>
+</div>
 
-  <div id="loginScreen" class="login-wrap ui" style="display:none;">
-    <h1 style="font-family:'Iowan Old Style',Georgia,serif;">
-      STARPREP
-    </h1>
+<div id="app" style="display:none;">
+  <header>
+    <h1 class="px">STARPREP</h1>
+    <div class="who"><div id="whoName"></div><button id="signOutBtn">Sign out</button></div>
+  </header>
 
-    <p>
-      Sign in with Google to practice STAR and PREP and track your scores.
-    </p>
+  <nav>
+    <button data-view="pick" class="active">PLAY</button>
+    <button data-view="progress">MY RUNS</button>
+    <button data-view="leaderboard">TOP SCORES</button>
+  </nav>
 
-    <button class="gbtn" id="googleBtn">
-      <svg viewBox="0 0 48 48">
-        <path
-          fill="#FFC107"
-          d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"
-        />
+  <main>
+    <section id="pick" class="view active">
+      <p class="lede">Choose a level to play.</p>
+      <div id="scnList"></div>
+    </section>
 
-        <path
-          fill="#FF3D00"
-          d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3c-7.3 0-13.6 4.1-16.7 10.1z"
-        />
-
-        <path
-          fill="#4CAF50"
-          d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.4-5.4C29.6 35.6 27 36.5 24 36.5c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 40.6 16.2 45 24 45z"
-        />
-
-        <path
-          fill="#1976D2"
-          d="M43.6 20.5H42V20H24v8h11.3c-1.1 3-3.3 5.3-6 6.8l6.4 5.4C39.9 37.6 45 31.5 45 24c0-1.4-.1-2.7-.4-3.5z"
-        />
-      </svg>
-
-      Continue with Google
-    </button>
-  </div>
-
-
-  <div id="app" style="display:none;">
-
-    <header>
-      <div>
-        <h1>OnPoint</h1>
-
-        <p>
-          Pick the best sentence for each step. The prompt changes, but every
-          question checks the same thing.
-        </p>
+    <section id="build" class="view">
+      <div class="hud">
+        <span>ROUND <span id="roundNo">1</span>/4</span>
+        <span class="combo" id="comboText">COMBO x1</span>
       </div>
-
-      <div class="who ui">
-        <div id="whoName"></div>
-
-        <button id="signOutBtn">
-          Sign out
-        </button>
+      <div class="timerbar"><div class="timerbar-fill" id="timerFill"></div></div>
+      <div class="qstep">
+        <div class="stepno px" id="stepLabel">STEP</div>
+        <div class="stepprompt" id="buildPrompt"></div>
+        <div id="choices"></div>
       </div>
-    </header>
+    </section>
 
+    <section id="feedback" class="view">
+      <div class="score-wrap">
+        <div class="score-num" id="scoreNum">0</div>
+        <div class="score-label px">RUN SCORE</div>
+      </div>
+      <div id="levelupMsg" class="levelup" style="display:none;"></div>
+      <button class="primary" id="tryAnother">PLAY AGAIN</button>
+      <button class="ghost" id="toLeaderboard">VIEW TOP SCORES</button>
+    </section>
 
-    <nav class="ui">
-      <button data-view="pick" class="active">
-        Practice
-      </button>
+    <section id="progress" class="view">
+      <p class="lede">Every run you've played, saved to your account.</p>
+      <div id="progTable"></div>
+    </section>
 
-      <button data-view="progress">
-        Progress
-      </button>
-    </nav>
+    <section id="leaderboard" class="view">
+      <p class="lede">Total XP across all runs — everyone signed in.</p>
+      <div id="lbTable"></div>
+    </section>
+  </main>
+</div>
 
-
-    <main>
-
-      <section id="pick" class="view active">
-        <p class="lede ui">
-          Choose a prompt to practice with.
-        </p>
-
-        <div id="scnList"></div>
-      </section>
-
-
-      <section id="build" class="view">
-        <p class="lede ui" id="buildPrompt"></p>
-
-        <div id="steps"></div>
-
-        <button class="primary ui" id="scoreBtn" disabled>
-          Submit answers
-        </button>
-
-        <button class="ghost ui" id="backBtn">
-          Back
-        </button>
-      </section>
-
-
-      <section id="feedback" class="view">
-
-        <div class="score-wrap">
-          <div class="score-num" id="scoreNum">
-            0
-          </div>
-
-          <div class="score-label ui">
-            correct out of 4 steps
-          </div>
-        </div>
-
-        <div id="fbRows" class="ui"></div>
-
-        <p
-          class="ui"
-          id="fbTip"
-          style="margin-top:16px; font-size:14.5px;"
-        ></p>
-
-        <button
-          class="primary ui"
-          id="tryAnother"
-          style="margin-top:14px;"
-        >
-          Try another prompt
-        </button>
-
-      </section>
-
-
-      <section id="progress" class="view">
-        <p class="lede ui">
-          Your scored attempts, saved to your account.
-        </p>
-
-        <div id="progTable"></div>
-      </section>
-
-    </main>
-
-  </div>
-
-
-  <script src="script.js"></script>
-
+<script src="script.js"></script>
 </body>
-
 </html>
