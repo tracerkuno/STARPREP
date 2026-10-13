@@ -75,8 +75,17 @@ const SCENARIOS = [
 const STEP_SECONDS = 12;
 const LEVELS = [ { min: 0, name: "Rookie" }, { min: 150, name: "Communicator" }, { min: 400, name: "Pro Speaker" }, { min: 800, name: "StarPrep Master" } ];
 
-const isPlaceholder = firebaseConfig.apiKey === "REPLACE_ME";
-if (isPlaceholder) document.getElementById("configWarning").style.display = "block";
+const firebaseConfig = {
+  apiKey: "AIzaSyDvFZjYnKvGIverhcqGE3GNQFVw4ZTeT34",
+  authDomain: "starprep-9d3a4.firebaseapp.com",
+  projectId: "starprep-9d3a4",
+  storageBucket: "starprep-9d3a4.firebasestorage.app",
+  messagingSenderId: "60666650865",
+  appId: "1:60666650865:web:cc9df3666416be469e8950"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 let db, auth;
 try {
