@@ -1,12 +1,12 @@
 "use strict";
 
 const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  apiKey: "AIzaSyDvFZjYnKvGIverhcqGE3GNQFVw4ZTeT34",
+  authDomain: "starprep-9d3a4.firebaseapp.com",
+  projectId: "starprep-9d3a4",
+  storageBucket: "starprep-9d3a4.firebasestorage.app",
+  messagingSenderId: "60666650865",
+  appId: "1:60666650865:web:cc9df3666416be469e8950"
 };
 
 const SCENARIOS = [
@@ -75,17 +75,8 @@ const SCENARIOS = [
 const STEP_SECONDS = 12;
 const LEVELS = [ { min: 0, name: "Rookie" }, { min: 150, name: "Communicator" }, { min: 400, name: "Pro Speaker" }, { min: 800, name: "StarPrep Master" } ];
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDvFZjYnKvGIverhcqGE3GNQFVw4ZTeT34",
-  authDomain: "starprep-9d3a4.firebaseapp.com",
-  projectId: "starprep-9d3a4",
-  storageBucket: "starprep-9d3a4.firebasestorage.app",
-  messagingSenderId: "60666650865",
-  appId: "1:60666650865:web:cc9df3666416be469e8950"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const isPlaceholder = firebaseConfig.apiKey === "AIzaSyDvFZjYnKvGIverhcqGE3GNQFVw4ZTeT34";
+if (isPlaceholder) document.getElementById("configWarning").style.display = "block";
 
 let db, auth;
 try {
