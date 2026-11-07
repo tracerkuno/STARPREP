@@ -147,7 +147,14 @@
   @keyframes tdpop { to { opacity: 0; transform: translateY(-50%) scale(1.7); } }
 
   .td-overlay {
-    position: fixed; inset: 0; background: rgba(11,14,26,.94); z-index: 95;
-    display: flex; align-items: center; justify-content: center; padding: 20px;
+    margin-top: 16px; padding: 14px; border: 2px solid var(--magenta); border-radius: 10px; background: var(--bg2);
   }
   .td-overlay-inner { max-width: 480px; width: 100%; }
+  .td-soldier { position: absolute; left: calc(100% - 96px); top: 50%; transform: translateY(-50%) scaleX(-1); font-size: 26px; transition: left .45s ease-in-out; }
+  .td-soldier.stun { opacity: .35; }
+  .td-tower.hit { animation: tdshake .3s; }
+  @keyframes tdshake { 0%, 100% { transform: translateY(-50%); } 25% { transform: translateY(-50%) translateX(-5px); } 75% { transform: translateY(-50%) translateX(5px); } }
+  .td-prompt { text-align: center; font-size: 14px; color: var(--ink); margin: 6px 0 10px; }
+  .td-context { font-size: 12.5px; color: var(--dim); border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: 10px; }
+  .td-context div { margin-bottom: 3px; }
+  .td-hint { font-size: 12.5px; color: var(--yellow); margin-bottom: 12px; text-align: center; }
