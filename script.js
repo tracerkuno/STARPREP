@@ -72,6 +72,16 @@ const SCENARIOS = [
     steps: ["Point", "Reason", "Example", "Point (restated)"].map(label => ({ label, correct: "", distractors: ["", "", ""] })) },
 ];
 
+const STEP_HINTS = {
+  "Situation": "Set the scene: where and when did it happen?",
+  "Task": "What were you responsible for?",
+  "Action": "What exactly did you do, step by step?",
+  "Result": "What happened because of what you did?",
+  "Point": "State your stand in one clear sentence.",
+  "Reason": "Why do you believe that?",
+  "Example": "Give one concrete example or piece of evidence.",
+  "Point (restated)": "Say your stand again to close the loop.",
+};
 const STEP_SECONDS = 12;
 const LEVELS = [ { min: 0, name: "Rookie" }, { min: 150, name: "Communicator" }, { min: 400, name: "Pro Speaker" }, { min: 800, name: "StarPrep Master" } ];
 
@@ -145,7 +155,7 @@ function playStep() {
   const c = state.choices[state.stepIndex];
   $("#roundNo").textContent = state.stepIndex + 1;
   $("#stepLabel").textContent = c.label.toUpperCase();
-  $("#buildPrompt").textContent = `${state.scenario.prompt}`;
+  $("#buildPrompt").textContent = `${state.scenario.prompt} (${STEP_HINTS[c.label]})`;
   $("#comboText").textContent = `COMBO x${1 + state.combo}`;
 
   $("#choices").innerHTML = c.options
@@ -323,7 +333,11 @@ const TD_DMG_SECOND = 25; // damage dealt when you pick the 2nd-best answer (you
 
 function tdPool() {
   return SCENARIOS.filter((s) => s.title).flatMap((s) =>
-    s.steps.map((st) => ({ method: s.method, label: st.label, correct: st.correct, distractors: st.distractors }))
+    s.steps.map((st, i) => ({
+      method: s.method, label: st.label, prompt: s.prompt,
+      context: s.steps.slice(0, i).map((p) => ({ label: p.label, text: p.correct })), // story so far
+      correct: st.correct, distractors: st.distractors,
+    }))
   );
 }
 
@@ -364,6 +378,7 @@ function tdRenderGameScreen() {
       <div class="td-enemy-hpbar"><div class="td-enemy-hpfill" id="tdEnemyHpFill" style="width:100%"></div></div>
       <div class="td-tower">🏰</div>
       <div class="td-enemy" id="tdEnemy" style="display:none;">👾</div>
+      <div class="td-soldier" id="tdSoldier">💂</div>
     </div>
     <div id="tdOverlayMount"></div>`;
 }
@@ -374,7 +389,7 @@ function tdSpawnEnemy() {
   td.enemyMaxHp = 100 + (td.level - 1) * 20;
   td.enemyHp = td.enemyMaxHp;
   const enemyEl = $("#tdEnemy");
-  if (enemyEl) { enemyEl.style.left = "8px"; enemyEl.style.display = "block"; enemyEl.classList.remove("dead"); }
+  if (enemyEl) { enemyEl.style.transition = "none"; enemyEl.style.left = "8px"; enemyEl.style.display = "block"; enemyEl.classList.remove("dead"); }
   tdUpdateEnemyHpBar();
   tdNextQuestion();
 }
@@ -387,6 +402,11 @@ function tdNextQuestion() {
   tdAskQuestion(q);
 }
 
+function tdUpdateScore() {
+  const el = $("#tdScore");
+  if (el) el.textContent = td.score;
+}
+
 function tdUpdateEnemyHpBar() {
   const el = $("#tdEnemyHpFill");
   if (el) el.style.width = Math.max(0, (td.enemyHp / td.enemyMaxHp) * 100) + "%";
@@ -396,6 +416,7 @@ function tdAskQuestion(q) {
   const options = shuffle([q.correct, q.distractors[0], q.distractors[1], q.distractors[2]]);
   const bestIndex = options.indexOf(q.correct);
   const secondIndex = options.indexOf(q.distractors[0]);
+  td.busy = false; // unlock input for this question
   td.timeLeft = td.timeLimit;
 
   const mount = $("#tdOverlayMount");
@@ -403,6 +424,9 @@ function tdAskQuestion(q) {
     <div class="td-overlay">
       <div class="td-overlay-inner">
         <div class="stepno px" style="text-align:center; color:var(--magenta); margin-bottom:8px;">${q.method} — ${q.label.toUpperCase()}</div>
+        <div class="td-prompt">${q.prompt}</div>
+        ${q.context.length ? `<div class="td-context">${q.context.map((c) => `<div><b>${c.label}:</b> ${c.text}</div>`).join("")}</div>` : ""}
+        <div class="td-hint">Pick the best sentence for <b>${q.label}</b> — ${STEP_HINTS[q.label]}</div>
         <div class="timerbar"><div class="timerbar-fill" id="tdTimerFill"></div></div>
         <div id="tdChoices"></div>
       </div>
@@ -422,39 +446,55 @@ function tdAskQuestion(q) {
   }, 100);
 }
 
+function tdMove(el, left, ms) {
+  if (!el) return;
+  el.style.transition = `left ${ms}ms ease-in-out`;
+  void el.offsetWidth;
+  el.style.left = left;
+}
+
 function tdAnswer(tier) {
   if (td.busy) return;
   td.busy = true;
   clearInterval(td.qTimer);
   $("#tdOverlayMount").innerHTML = "";
-  const enemyEl = $("#tdEnemy");
+  const enemyEl = $("#tdEnemy"), soldierEl = $("#tdSoldier"), towerEl = $(".td-tower");
+  const hit = tier === "best" || tier === "second";
 
-  if (tier === "best" || tier === "second") {
-    const dmg = tier === "best" ? TD_DMG_BEST : TD_DMG_SECOND;
-    td.enemyHp = Math.max(0, td.enemyHp - dmg);
-    td.score += dmg;
-    tdUpdateEnemyHpBar();
-    popup("-" + dmg, tier === "best" ? "good" : "ok");
-    flash(tier === "best" ? "good" : "ok");
+  // The monster always charges the tower...
+  tdMove(enemyEl, hit ? "calc(48% - 30px)" : "calc(100% - 124px)", 450);
+  // ...a good answer sends the soldier out to meet it; a bad one leaves him stunned.
+  if (hit) tdMove(soldierEl, "calc(48% + 6px)", 450);
+  else if (soldierEl) soldierEl.classList.add("stun");
 
-    if (td.enemyHp <= 0) {
-      td.score += 50; // kill bonus
-      if (enemyEl) enemyEl.classList.add("dead");
-      setTimeout(tdEnemyCleared, 350);
+  setTimeout(() => {
+    if (hit) {
+      const dmg = tier === "best" ? TD_DMG_BEST : TD_DMG_SECOND;
+      td.enemyHp = Math.max(0, td.enemyHp - dmg);
+      td.score += dmg;
+      tdUpdateEnemyHpBar();
+      tdUpdateScore();
+      popup("+" + dmg, tier === "best" ? "good" : "ok");
+      flash(tier === "best" ? "good" : "ok");
+      tdMove(soldierEl, "calc(100% - 96px)", 400); // soldier walks back to the tower
+
+      if (td.enemyHp <= 0) {
+        td.score += 50; // kill bonus
+        setTimeout(tdUpdateScore, 300);
+        if (enemyEl) enemyEl.classList.add("dead");
+        setTimeout(tdEnemyCleared, 400);
+      } else {
+        tdMove(enemyEl, "8px", 350); // knocked back, still alive
+        setTimeout(tdNextQuestion, 700);
+      }
     } else {
-      setTimeout(tdNextQuestion, 500); // same enemy, still alive — ask again
+      popup("MISS", "bad");
+      flash("bad");
+      if (towerEl) { towerEl.classList.add("hit"); setTimeout(() => towerEl.classList.remove("hit"), 350); }
+      tdMove(enemyEl, "8px", 400);
+      setTimeout(() => { if (soldierEl) soldierEl.classList.remove("stun"); tdEnemyHitTower(); }, 450);
     }
-  } else {
-    popup(tier === "wrong" ? "MISS" : "TIME UP", "bad");
-    flash("bad");
-    if (enemyEl) {
-      const orig = enemyEl.style.left;
-      enemyEl.style.transition = "left .3s ease-in-out";
-      requestAnimationFrame(() => { enemyEl.style.left = "calc(100% - 70px)"; });
-      setTimeout(() => { enemyEl.style.left = orig || "8px"; }, 400);
-    }
-    setTimeout(tdEnemyHitTower, 450);
-  }
+  }, 470);
 }
 
 // Called when a miss lets the current (still-alive) enemy strike the tower.
