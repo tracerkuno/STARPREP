@@ -94,7 +94,7 @@ function showView(id) {
   $$(".view").forEach((v) => v.classList.remove("active"));
   $("#" + id).classList.add("active");
   $$("nav button").forEach((b) => b.classList.remove("active"));
-  const navId = ["progress", "leaderboard"].includes(id) ? id : "pick";
+  const navId = ["progress", "leaderboard"].includes(id) ? id : "home";
   $(`nav button[data-view="${navId}"]`)?.classList.add("active");
 }
 
@@ -286,7 +286,7 @@ function onAuthChange(user) {
     $("#app").style.display = "block";
     $("#whoName").textContent = user.displayName || user.email || "Signed in";
     renderScenarios();
-    showView("pick");
+    showView("home");
   } else {
     $("#app").style.display = "none";
     $("#loginScreen").style.display = "flex";
@@ -297,6 +297,9 @@ $("#tryAnother").addEventListener("click", () => showView("pick"));
 $("#toLeaderboard").addEventListener("click", () => { renderLeaderboard(); showView("leaderboard"); });
 $("#googleBtn").addEventListener("click", signIn);
 $("#signOutBtn").addEventListener("click", signOutUser);
+$("#homeQuickPlay").addEventListener("click", () => { renderScenarios(); showView("pick"); });
+$("#homeTowerDefense").addEventListener("click", () => { tdRenderStart(); showView("towerdefense"); });
+$$(".backhome").forEach((b) => b.addEventListener("click", () => showView("home")));
 $$("nav button").forEach((b) => {
   b.addEventListener("click", () => {
     const v = b.dataset.view;
@@ -308,3 +311,216 @@ $$("nav button").forEach((b) => {
 
 if (auth) auth.onAuthStateChanged(onAuthChange);
 else $("#loginScreen").style.display = "flex";
+
+/* ============================================================
+   TOWER DEFENSE MODE
+   Self-contained — reuses the same SCENARIOS question data,
+   but does not touch any Quick Play functions above.
+   ============================================================ */
+const td = { level: 1, hp: 100, maxHp: 100, enemyHp: 0, enemyMaxHp: 100, enemiesLeft: 0, enemiesTotal: 0, score: 0, qTimer: null, timeLeft: 0, timeLimit: 60, busy: false };
+const TD_DMG_BEST = 55;   // damage dealt when you pick the best answer
+const TD_DMG_SECOND = 25; // damage dealt when you pick the 2nd-best answer (your request: less damage)
+
+function tdPool() {
+  return SCENARIOS.filter((s) => s.title).flatMap((s) =>
+    s.steps.map((st) => ({ method: s.method, label: st.label, correct: st.correct, distractors: st.distractors }))
+  );
+}
+
+function tdRenderStart() {
+  $("#tdRoot").innerHTML = `
+    <div class="td-start">
+      <h2>TOWER DEFENSE</h2>
+      <p>An enemy spawns and the game freezes. Pick the <b>best</b> sentence for full damage, the <b>2nd-best</b> for a weaker hit, or anything else and it gets a free shot at your tower. Defeat each wave to level up.</p>
+      <button class="primary" id="tdStartBtn" style="max-width:280px; margin:0 auto;">START DEFENSE</button>
+      <button class="ghost backhome" style="max-width:280px; margin:10px auto 0;">BACK TO MENU</button>
+    </div>`;
+  $("#tdStartBtn").addEventListener("click", tdStart);
+  $$(".backhome").forEach((b) => b.addEventListener("click", () => showView("home")));
+}
+
+function tdStart() {
+  td.level = 1; td.hp = 100; td.maxHp = 100; td.score = 0;
+  tdStartLevel();
+}
+
+function tdStartLevel() {
+  td.enemiesTotal = 2 + td.level;
+  td.enemiesLeft = td.enemiesTotal;
+  td.timeLimit = Math.max(20, 60 - (td.level - 1) * 5);
+  tdRenderGameScreen();
+  tdSpawnEnemy();
+}
+
+function tdRenderGameScreen() {
+  $("#tdRoot").innerHTML = `
+    <div class="td-hud">
+      <span class="td-level px">LEVEL ${td.level}</span>
+      <span>ENEMIES LEFT: <b id="tdEnemiesLeft">${td.enemiesLeft}</b></span>
+      <span>SCORE: <b id="tdScore">${td.score}</b></span>
+    </div>
+    <div class="td-hpbar"><div class="td-hpfill" id="tdHpFill" style="width:${(td.hp / td.maxHp) * 100}%"></div></div>
+    <div class="td-lane">
+      <div class="td-enemy-hpbar"><div class="td-enemy-hpfill" id="tdEnemyHpFill" style="width:100%"></div></div>
+      <div class="td-tower">🏰</div>
+      <div class="td-enemy" id="tdEnemy" style="display:none;">👾</div>
+    </div>
+    <div id="tdOverlayMount"></div>`;
+}
+
+// Spawns a brand-new enemy (full HP) and asks its first question.
+function tdSpawnEnemy() {
+  td.busy = false;
+  td.enemyMaxHp = 100 + (td.level - 1) * 20;
+  td.enemyHp = td.enemyMaxHp;
+  const enemyEl = $("#tdEnemy");
+  if (enemyEl) { enemyEl.style.left = "8px"; enemyEl.style.display = "block"; enemyEl.classList.remove("dead"); }
+  tdUpdateEnemyHpBar();
+  tdNextQuestion();
+}
+
+// Asks another question for whichever enemy is currently on screen
+// (used both for a fresh spawn and for a surviving multi-hit enemy).
+function tdNextQuestion() {
+  const pool = tdPool();
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  tdAskQuestion(q);
+}
+
+function tdUpdateEnemyHpBar() {
+  const el = $("#tdEnemyHpFill");
+  if (el) el.style.width = Math.max(0, (td.enemyHp / td.enemyMaxHp) * 100) + "%";
+}
+
+function tdAskQuestion(q) {
+  const options = shuffle([q.correct, q.distractors[0], q.distractors[1], q.distractors[2]]);
+  const bestIndex = options.indexOf(q.correct);
+  const secondIndex = options.indexOf(q.distractors[0]);
+  td.timeLeft = td.timeLimit;
+
+  const mount = $("#tdOverlayMount");
+  mount.innerHTML = `
+    <div class="td-overlay">
+      <div class="td-overlay-inner">
+        <div class="stepno px" style="text-align:center; color:var(--magenta); margin-bottom:8px;">${q.method} — ${q.label.toUpperCase()}</div>
+        <div class="timerbar"><div class="timerbar-fill" id="tdTimerFill"></div></div>
+        <div id="tdChoices"></div>
+      </div>
+    </div>`;
+  $("#tdChoices").innerHTML = options.map((opt, oi) => `<button type="button" class="choice" data-opt="${oi}">${opt}</button>`).join("");
+  $("#tdChoices").querySelectorAll(".choice").forEach((btn) => btn.addEventListener("click", () => {
+    const oi = Number(btn.dataset.opt);
+    const tier = oi === bestIndex ? "best" : oi === secondIndex ? "second" : "wrong";
+    tdAnswer(tier);
+  }));
+
+  clearInterval(td.qTimer);
+  td.qTimer = setInterval(() => {
+    td.timeLeft -= 0.1;
+    $("#tdTimerFill").style.width = Math.max(0, (td.timeLeft / td.timeLimit) * 100) + "%";
+    if (td.timeLeft <= 0) { clearInterval(td.qTimer); tdAnswer("wrong"); }
+  }, 100);
+}
+
+function tdAnswer(tier) {
+  if (td.busy) return;
+  td.busy = true;
+  clearInterval(td.qTimer);
+  $("#tdOverlayMount").innerHTML = "";
+  const enemyEl = $("#tdEnemy");
+
+  if (tier === "best" || tier === "second") {
+    const dmg = tier === "best" ? TD_DMG_BEST : TD_DMG_SECOND;
+    td.enemyHp = Math.max(0, td.enemyHp - dmg);
+    td.score += dmg;
+    tdUpdateEnemyHpBar();
+    popup("-" + dmg, tier === "best" ? "good" : "ok");
+    flash(tier === "best" ? "good" : "ok");
+
+    if (td.enemyHp <= 0) {
+      td.score += 50; // kill bonus
+      if (enemyEl) enemyEl.classList.add("dead");
+      setTimeout(tdEnemyCleared, 350);
+    } else {
+      setTimeout(tdNextQuestion, 500); // same enemy, still alive — ask again
+    }
+  } else {
+    popup(tier === "wrong" ? "MISS" : "TIME UP", "bad");
+    flash("bad");
+    if (enemyEl) {
+      const orig = enemyEl.style.left;
+      enemyEl.style.transition = "left .3s ease-in-out";
+      requestAnimationFrame(() => { enemyEl.style.left = "calc(100% - 70px)"; });
+      setTimeout(() => { enemyEl.style.left = orig || "8px"; }, 400);
+    }
+    setTimeout(tdEnemyHitTower, 450);
+  }
+}
+
+// Called when a miss lets the current (still-alive) enemy strike the tower.
+function tdEnemyHitTower() {
+  const dmg = 15 + td.level * 2;
+  td.hp = Math.max(0, td.hp - dmg);
+  const fill = $("#tdHpFill");
+  if (fill) fill.style.width = (td.hp / td.maxHp) * 100 + "%";
+  if (td.hp <= 0) { tdGameOver(); return; }
+  setTimeout(tdNextQuestion, 400); // same enemy keeps fighting
+}
+
+// Called only when an enemy's HP actually reaches 0.
+function tdEnemyCleared() {
+  td.enemiesLeft -= 1;
+  const left = $("#tdEnemiesLeft"); if (left) left.textContent = td.enemiesLeft;
+  const sc = $("#tdScore"); if (sc) sc.textContent = td.score;
+  const enemyEl = $("#tdEnemy"); if (enemyEl) enemyEl.style.display = "none";
+
+  if (td.enemiesLeft <= 0) { tdLevelComplete(); return; }
+  setTimeout(tdSpawnEnemy, 500);
+}
+
+function tdLevelComplete() {
+  $("#tdRoot").innerHTML = `
+    <div class="td-start">
+      <h2>LEVEL ${td.level} CLEARED</h2>
+      <p>Tower HP: ${td.hp}/${td.maxHp} · Score so far: ${td.score}</p>
+      <button class="primary" id="tdNextBtn" style="max-width:280px; margin:0 auto;">NEXT LEVEL</button>
+      <button class="ghost backhome" style="max-width:280px; margin:10px auto 0;">BACK TO MENU</button>
+    </div>`;
+  $("#tdNextBtn").addEventListener("click", () => { td.level += 1; tdStartLevel(); });
+  $$(".backhome").forEach((b) => b.addEventListener("click", () => showView("home")));
+}
+
+function tdGameOver() {
+  clearInterval(td.qTimer);
+  tdSaveRun();
+  $("#tdRoot").innerHTML = `
+    <div class="td-over">
+      <h2 style="color:var(--coral, var(--magenta));">TOWER DOWN</h2>
+      <p>You reached Level ${td.level} with a score of ${td.score}.</p>
+      <button class="primary" id="tdRetryBtn" style="max-width:280px; margin:0 auto;">TRY AGAIN</button>
+      <button class="ghost backhome" style="max-width:280px; margin:10px auto 0;">BACK TO MENU</button>
+    </div>`;
+  $("#tdRetryBtn").addEventListener("click", tdRenderStart);
+  $$(".backhome").forEach((b) => b.addEventListener("click", () => showView("home")));
+}
+
+function tdSaveRun() {
+  if (!db || !state.user) return;
+  const uid = state.user.uid, name = state.user.displayName;
+
+  db.collection("attempts").add({
+    uid, name,
+    date: new Date().toISOString().slice(0, 10),
+    scenario: `Tower Defense — reached Level ${td.level}`,
+    method: "TOWER DEFENSE",
+    score: td.score,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch((err) => console.error("TD save attempt failed:", err));
+
+  const playerRef = db.collection("players").doc(uid);
+  db.runTransaction(async (tx) => {
+    const doc = await tx.get(playerRef);
+    const prevXp = doc.exists ? doc.data().totalScore || 0 : 0;
+    tx.set(playerRef, { name, totalScore: prevXp + td.score, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  }).catch((err) => console.error("TD XP update failed:", err));
+}
