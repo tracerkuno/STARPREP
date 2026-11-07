@@ -38,14 +38,29 @@
   </header>
 
   <nav>
-    <button data-view="pick" class="active">PLAY</button>
+    <button data-view="home" class="active">HOME</button>
     <button data-view="progress">MY RUNS</button>
     <button data-view="leaderboard">TOP SCORES</button>
   </nav>
 
   <main>
-    <section id="pick" class="view active">
+    <section id="home" class="view active">
+      <p class="lede">Choose a game mode.</p>
+      <div class="scn" id="homeQuickPlay">
+        <span class="tag">Multiple choice quiz · <span class="pill">ALL LEVELS</span></span>
+        <h3>Quick Play</h3>
+        <p>Pick the best sentence for each STAR/PREP step, beat the clock, build your combo.</p>
+      </div>
+      <div class="scn" id="homeTowerDefense">
+        <span class="tag">Survival mode · <span class="pill">NEW</span></span>
+        <h3>Tower Defense</h3>
+        <p>Defend your tower across waves of enemies — the best answer deals full damage, the 2nd-best deals less, anything else lets the enemy strike back.</p>
+      </div>
+    </section>
+
+    <section id="pick" class="view">
       <p class="lede">Choose a level to play.</p>
+      <button class="ghost backhome" style="margin-bottom:16px;">BACK TO MENU</button>
       <div id="scnList"></div>
     </section>
 
@@ -80,6 +95,10 @@
     <section id="leaderboard" class="view">
       <p class="lede">Total XP across all runs — everyone signed in.</p>
       <div id="lbTable"></div>
+    </section>
+
+    <section id="towerdefense" class="view">
+      <div id="tdRoot"></div>
     </section>
   </main>
 </div>
