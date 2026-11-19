@@ -23,17 +23,17 @@
 </div>
 
 <div id="loginScreen" class="login-wrap" style="display:none;">
+  <div class="login-card"><div class="brand-mark" aria-hidden="true">S<span>✦</span></div><span class="eyebrow">YOUR COMMUNICATION ARCADE</span>
   <h1 class="px">STARPREP</h1>
-  <p>Beat the clock. Build your combo. Pick the sentence that actually belongs in each step of STAR or PREP.</p>
+  <p>Turn interview practice into a game. Sharpen your answers, build confidence, and level up your communication skills.</p>
   <button class="gbtn" id="googleBtn">
     <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.6 5.1 29.6 3 24 3c-7.3 0-13.6 4.1-16.7 10.1z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.3-2.1 14-5.5l-6.4-5.4C29.6 35.6 27 36.5 24 36.5c-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3-3.3 5.3-6 6.8l6.4 5.4C39.9 37.6 45 31.5 45 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
     Continue with Google
-  </button>
+    </button><p class="login-note">Sign in to save your runs and track your progress.</p></div>
 </div>
 
 <div id="app" style="display:none;">
-  <header>
-    <h1 class="px">STARPREP</h1>
+  <header><div class="brand-lockup"><div class="brand-mark small" aria-hidden="true">S<span>✦</span></div><div><h1 class="px">STARPREP</h1><span class="brand-caption">SPEAK WITH PURPOSE</span></div></div>
     <div class="who"><div id="whoName"></div><button id="signOutBtn">Sign out</button></div>
   </header>
 
@@ -44,8 +44,7 @@
   </nav>
 
   <main>
-    <section id="home" class="view active">
-      <p class="lede">Choose a game mode.</p>
+    <section id="home" class="view active"><div class="home-hero"><div class="hero-copy"><span class="eyebrow">READY PLAYER ONE?</span><h2>Build answers.<br><em>Build confidence.</em></h2><p>Practice the STAR and PREP methods through quick challenges and strategic game modes.</p></div><div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="hero-star">✦</div><div class="hero-chip chip-star">STAR</div><div class="hero-chip chip-prep">PREP</div></div></div><div class="section-heading"><div><span class="eyebrow">CHOOSE YOUR CHALLENGE</span><p class="lede">Choose a game mode.</p></div><span class="section-spark">✳</span></div>
       <div class="scn" id="homeQuickPlay">
         <span class="tag">Multiple choice quiz · <span class="pill">ALL LEVELS</span></span>
         <h3>Quick Play</h3>
@@ -58,8 +57,7 @@
       </div>
     </section>
 
-    <section id="pick" class="view">
-      <p class="lede">Choose a level to play.</p>
+    <section id="pick" class="view"><div class="page-heading"><span class="eyebrow">PRACTICE ARENA</span><h2>Choose your scenario</h2><p class="lede">Pick a challenge and show what you can do.</p></div>
       <button class="ghost backhome" style="margin-bottom:16px;">BACK TO MENU</button>
       <div id="scnList"></div>
     </section>
@@ -87,13 +85,11 @@
       <button class="ghost" id="toLeaderboard">VIEW TOP SCORES</button>
     </section>
 
-    <section id="progress" class="view">
-      <p class="lede">Every run you've played, saved to your account.</p>
+    <section id="progress" class="view"><div class="page-heading"><span class="eyebrow">YOUR JOURNEY</span><h2>My runs</h2><p class="lede">Every run you've played, saved to your account.</p></div>
       <div id="progTable"></div>
     </section>
 
-    <section id="leaderboard" class="view">
-      <p class="lede">Total XP across all runs — everyone signed in.</p>
+    <section id="leaderboard" class="view"><div class="page-heading"><span class="eyebrow">THE HALL OF FAME</span><h2>Top scores</h2><p class="lede">Total XP across all runs — everyone signed in.</p></div>
       <div id="lbTable"></div>
     </section>
 
