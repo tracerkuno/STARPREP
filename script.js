@@ -192,11 +192,13 @@ function handlePick(oi) {
     const points = 25 * (1 + Math.min(state.combo - 1, 4) * 0.25) + speedBonus;
     state.runScore += Math.round(points);
     popup("+" + Math.round(points), "good");
+    sfx("ding");
     flash("good");
     const ct = $("#comboText"); ct.classList.remove("on"); void ct.offsetWidth; ct.classList.add("on");
   } else {
     state.combo = 0;
     popup(oi === -1 ? "TIME UP" : "MISS", "bad");
+    sfx("miss");
     flash("bad");
   }
 
@@ -388,6 +390,7 @@ function tdSpawnEnemy() {
   td.busy = false;
   td.enemyMaxHp = 100 + (td.level - 1) * 20;
   td.enemyHp = td.enemyMaxHp;
+  sfx("spawn");
   const enemyEl = $("#tdEnemy");
   if (enemyEl) { enemyEl.style.transition = "none"; enemyEl.style.left = "8px"; enemyEl.style.display = "block"; enemyEl.classList.remove("dead"); }
   tdUpdateEnemyHpBar();
@@ -460,6 +463,7 @@ function tdAnswer(tier) {
   $("#tdOverlayMount").innerHTML = "";
   const enemyEl = $("#tdEnemy"), soldierEl = $("#tdSoldier"), towerEl = $(".td-tower");
   const hit = tier === "best" || tier === "second";
+  sfx("charge");
 
   // The monster always charges the tower...
   tdMove(enemyEl, hit ? "calc(48% - 30px)" : "calc(100% - 124px)", 450);
@@ -476,10 +480,12 @@ function tdAnswer(tier) {
       tdUpdateScore();
       popup("+" + dmg, tier === "best" ? "good" : "ok");
       flash(tier === "best" ? "good" : "ok");
+      sfx(tier === "best" ? "defend" : "defendWeak");
       tdMove(soldierEl, "calc(100% - 96px)", 400); // soldier walks back to the tower
 
       if (td.enemyHp <= 0) {
         td.score += 50; // kill bonus
+        setTimeout(() => sfx("kill"), 250);
         setTimeout(tdUpdateScore, 300);
         if (enemyEl) enemyEl.classList.add("dead");
         setTimeout(tdEnemyCleared, 400);
@@ -490,6 +496,7 @@ function tdAnswer(tier) {
     } else {
       popup("MISS", "bad");
       flash("bad");
+      sfx("tower");
       if (towerEl) { towerEl.classList.add("hit"); setTimeout(() => towerEl.classList.remove("hit"), 350); }
       tdMove(enemyEl, "8px", 400);
       setTimeout(() => { if (soldierEl) soldierEl.classList.remove("stun"); tdEnemyHitTower(); }, 450);
@@ -519,6 +526,7 @@ function tdEnemyCleared() {
 }
 
 function tdLevelComplete() {
+  sfx("levelup");
   $("#tdRoot").innerHTML = `
     <div class="td-start">
       <h2>LEVEL ${td.level} CLEARED</h2>
@@ -532,6 +540,7 @@ function tdLevelComplete() {
 
 function tdGameOver() {
   clearInterval(td.qTimer);
+  sfx("gameover");
   tdSaveRun();
   $("#tdRoot").innerHTML = `
     <div class="td-over">
@@ -564,3 +573,113 @@ function tdSaveRun() {
     tx.set(playerRef, { name, totalScore: prevXp + td.score, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
   }).catch((err) => console.error("TD XP update failed:", err));
 }
+
+/* ============================================================
+   AUDIO — synthesized with the Web Audio API (no sound files).
+   Music and SFX can be switched off separately; the choice is remembered.
+   ============================================================ */
+const audio = { ctx: null, sfxOn: true, musicOn: true, musicTimer: null, step: 0 };
+try {
+  const saved = JSON.parse(localStorage.getItem("starprep_audio") || "{}");
+  if (typeof saved.sfxOn === "boolean") audio.sfxOn = saved.sfxOn;
+  if (typeof saved.musicOn === "boolean") audio.musicOn = saved.musicOn;
+} catch (e) { /* storage unavailable — keep defaults */ }
+
+function audioSave() {
+  try { localStorage.setItem("starprep_audio", JSON.stringify({ sfxOn: audio.sfxOn, musicOn: audio.musicOn })); } catch (e) {}
+}
+
+function audioInit() {
+  if (!audio.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    audio.ctx = new AC();
+  }
+  if (audio.ctx.state === "suspended") audio.ctx.resume();
+  return true;
+}
+
+function tone(freq, dur, type = "square", vol = 0.06, when = 0, slideTo = null) {
+  if (!audio.ctx) return;
+  const c = audio.ctx, t = c.currentTime + when;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+
+function noiseBurst(dur, vol, when, cutoff) {
+  if (!audio.ctx) return;
+  const c = audio.ctx, t = c.currentTime + when;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = cutoff;
+  const g = c.createGain(); g.gain.value = vol;
+  src.connect(f); f.connect(g); g.connect(c.destination);
+  src.start(t);
+}
+
+const SFX = {
+  spawn: () => tone(90, 0.3, "sawtooth", 0.06, 0, 170),
+  charge: () => { tone(150, 0.4, "sawtooth", 0.06, 0, 380); noiseBurst(0.35, 0.04, 0, 900); },
+  defend: () => { noiseBurst(0.14, 0.12, 0, 4000); tone(880, 0.1, "square", 0.06, 0, 440); tone(1320, 0.18, "square", 0.05, 0.06); tone(1760, 0.2, "triangle", 0.05, 0.12); },
+  defendWeak: () => { noiseBurst(0.12, 0.09, 0, 3000); tone(700, 0.12, "square", 0.05, 0, 420); },
+  tower: () => { noiseBurst(0.3, 0.16, 0, 500); tone(110, 0.35, "sawtooth", 0.09, 0, 45); },
+  kill: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.12, "square", 0.06, i * 0.07)),
+  ding: () => { tone(988, 0.08, "square", 0.06); tone(1319, 0.14, "square", 0.06, 0.07); },
+  miss: () => tone(220, 0.25, "sawtooth", 0.06, 0, 110),
+  levelup: () => [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, "square", 0.06, i * 0.1)),
+  gameover: () => [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, "triangle", 0.09, i * 0.22)),
+};
+
+function sfx(name) {
+  if (!audio.sfxOn || !audioInit()) return;
+  if (SFX[name]) SFX[name]();
+}
+
+const BGM_LEAD = [440,0,523,0,659,523,0,440, 392,0,494,0,587,494,0,392, 349,0,440,0,523,440,0,349, 330,0,392,0,494,392,330,0];
+const BGM_BASS = [110,0,110,0,110,0,110,0, 98,0,98,0,98,0,98,0, 87,0,87,0,87,0,87,0, 82,0,82,0,98,0,82,0];
+
+function musicStart() {
+  if (!audio.musicOn || audio.musicTimer || !audioInit()) return;
+  audio.musicTimer = setInterval(() => {
+    const i = audio.step++ % BGM_LEAD.length;
+    if (BGM_LEAD[i]) tone(BGM_LEAD[i], 0.2, "square", 0.022);
+    if (BGM_BASS[i]) tone(BGM_BASS[i], 0.24, "triangle", 0.045);
+  }, 230);
+}
+function musicStop() { clearInterval(audio.musicTimer); audio.musicTimer = null; }
+
+function audioRefreshLabels() {
+  const m = $("#musicBtn"), s = $("#sfxBtn");
+  m.textContent = "♪ MUSIC " + (audio.musicOn ? "ON" : "OFF");
+  s.textContent = "SFX " + (audio.sfxOn ? "ON" : "OFF");
+  m.classList.toggle("off", !audio.musicOn);
+  s.classList.toggle("off", !audio.sfxOn);
+}
+
+function audioSetup() {
+  const wrap = document.createElement("div");
+  wrap.className = "audio-ctl";
+  wrap.innerHTML = '<button type="button" class="audbtn" id="musicBtn"></button><button type="button" class="audbtn" id="sfxBtn"></button>';
+  const header = document.querySelector("#app header");
+  header.insertBefore(wrap, header.querySelector(".who"));
+  audioRefreshLabels();
+  $("#musicBtn").addEventListener("click", () => {
+    audio.musicOn = !audio.musicOn; audioSave(); audioRefreshLabels();
+    if (audio.musicOn) musicStart(); else musicStop();
+  });
+  $("#sfxBtn").addEventListener("click", () => {
+    audio.sfxOn = !audio.sfxOn; audioSave(); audioRefreshLabels();
+    if (audio.sfxOn) sfx("ding");
+  });
+  // Browsers only allow sound after a tap/click, so music starts on the first one.
+  document.addEventListener("click", musicStart, { once: true });
+}
+audioSetup();
